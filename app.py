@@ -105,7 +105,7 @@ fig_scatter = px.scatter(
 fig_scatter.update_traces(marker=dict(size=8, line=dict(width=0.5, color='DarkSlateGrey')))
 st.plotly_chart(fig_scatter, use_container_width=True)
 
-tab1, tab2, tab3 = st.tabs(["Core Visualizations", "Demographic Deep Dives", "Detailed Data Tables"])
+tab1, tab2, tab3, tab4 = st.tabs(["Core Visualizations", "Demographic Deep Dives", "Detailed Data Tables", "Extremes Analysis"])
 
 with tab1:
     st.subheader("Spending Breakdown by Category")
@@ -267,3 +267,62 @@ with tab3:
             }).background_gradient(cmap='Oranges', subset=['Spend % of Income']),
             use_container_width=True, hide_index=True
         )
+
+with tab4:
+    st.subheader("High Rollers vs. Budget Savers")
+    st.markdown("Comparing the average categorical spending of the top 10% highest spenders versus the bottom 10% lowest spenders in your current filtered view.")
+    
+    # Calculate total spending per household to find percentiles
+    hh_totals = filtered_df.groupby('household_id')['annual_amount'].sum().reset_index()
+    
+    if len(hh_totals) < 10:
+        st.info("Not enough households in the current filter to calculate meaningful top/bottom 10% percentiles. Broaden your filters to view this chart.")
+    else:
+        p90 = hh_totals['annual_amount'].quantile(0.9)
+        p10 = hh_totals['annual_amount'].quantile(0.1)
+        
+        # Isolate household IDs
+        high_ids = hh_totals[hh_totals['annual_amount'] >= p90]['household_id']
+        low_ids = hh_totals[hh_totals['annual_amount'] <= p10]['household_id']
+        
+        # Get full data for these specific households
+        hr_df = filtered_df[filtered_df['household_id'].isin(high_ids)]
+        bs_df = filtered_df[filtered_df['household_id'].isin(low_ids)]
+        
+        # Calculate average categorical spend for both groups
+        hr_cat = hr_df.groupby('category_name')['annual_amount'].mean().reset_index()
+        hr_cat['Cohort'] = 'High Rollers (Top 10%)'
+        
+        bs_cat = bs_df.groupby('category_name')['annual_amount'].mean().reset_index()
+        bs_cat['Cohort'] = 'Budget Savers (Bottom 10%)'
+        
+        # Combine for plotting
+        radar_df = pd.concat([hr_cat, bs_cat])
+        
+        # Build the Radar Chart
+        fig_radar = px.line_polar(
+            radar_df, 
+            r='annual_amount', 
+            theta='category_name', 
+            color='Cohort',
+            line_close=True,
+            color_discrete_map={'High Rollers (Top 10%)': '#C2185B', 'Budget Savers (Bottom 10%)': '#F48FB1'},
+            template="plotly_white"
+        )
+        
+        # Professional upgrades: fill the areas with opacity, format tooltips
+        fig_radar.update_traces(
+            fill='toself', 
+            opacity=0.75,
+            hovertemplate="<b>%{theta}</b><br>Avg Spend: $%{r:,.0f}<extra></extra>"
+        )
+        
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, showticklabels=True, tickfont=dict(size=10)),
+                angularaxis=dict(tickfont=dict(size=13, color='black'))
+            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5)
+        )
+        
+        st.plotly_chart(fig_radar, use_container_width=True)
