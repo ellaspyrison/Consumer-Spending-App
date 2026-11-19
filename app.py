@@ -57,10 +57,28 @@ sel_marital = add_filter('marital_status', 'Marital Status')
 sel_housing = add_filter('housing_tenure', 'Housing Tenure')
 sel_sex = add_filter('sex', 'Reference Person Sex')
 
-min_inc, max_inc = int(df['income_before_taxes'].min()), int(df['income_before_taxes'].max())
+# Drop missing values first to ensure we get actual numbers
+clean_income = df['income_before_taxes'].dropna()
+
+# Add a safety check in case the column is entirely empty/NaN
+if not clean_income.empty:
+    min_inc = int(clean_income.min())
+    max_inc = int(clean_income.max())
+else:
+    # Default values if no valid data exists
+    min_inc, max_inc = 0, 100000
 sel_income = st.sidebar.slider("Income Before Taxes ($)", min_value=min_inc, max_value=max_inc, value=(min_inc, max_inc))
 
-min_age, max_age = int(df['age'].min()), int(df['age'].max())
+# Drop missing values first to ensure we get actual numbers
+clean_age = df['age'].dropna()
+
+# Add a safety check in case the column is entirely empty/NaN
+if not clean_age.empty:
+    min_age = int(clean_age.min())
+    max_age = int(clean_age.max())
+else:
+    # Default values if no valid data exists
+    min_age, max_age = 18, 100
 sel_age = st.sidebar.slider("Age of Reference Person", min_value=min_age, max_value=max_age, value=(min_age, max_age))
 
 filtered_df = df.copy()
